@@ -12,6 +12,22 @@ PORT=8001 python3 server.py
 
 Abra http://localhost:8001. **Não use `python3 -m http.server` nem abra o HTML diretamente:** o upload e as notificações precisam de `server.py`.
 
+## Docker
+
+Com Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+Abra http://localhost:7003. Os dados ficam no volume persistente `cv_data`.
+Para executar diretamente com Docker:
+
+```bash
+docker build -t cv-link .
+docker run --rm -p 7003:7003 -v cv_link_data:/data cv-link
+```
+
 1. Envie um PDF de até 10 MB e informe seu e-mail.
 2. Copie o link público e compartilhe.
 3. Guarde a chave privada do painel para recuperar o acesso em outro navegador.
