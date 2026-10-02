@@ -1,6 +1,6 @@
 # CV Link
 
-Upload de currículo PDF, link curto e notificações de acesso ao proprietário.
+Upload de currículo PDF, link curto, notificações de acesso ao proprietário **e construtor de currículos com exportação para PDF ou DOCX**.
 
 ## Executar
 
@@ -10,7 +10,7 @@ Python 3.12+, sem dependências externas:
 PORT=8001 python3 server.py
 ```
 
-Abra http://localhost:8001. **Não use `python3 -m http.server` nem abra o HTML diretamente:** o upload e as notificações precisam de `server.py`.
+Abra http://localhost:8001. **Não use `python3 -m http.server` nem abra o HTML diretamente:** o upload, as notificações e a exportação DOCX precisam de `server.py`.
 
 ## Docker
 
