@@ -1,6 +1,7 @@
 """CV link server: Python 3.12+, no third-party dependencies."""
 import hashlib
 import html
+import io
 import json
 import os
 from pathlib import Path
@@ -15,6 +16,7 @@ from email.message import EmailMessage
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import unquote, urlparse
+import zipfile
 
 ROOT = Path(__file__).resolve().parent
 DATA = Path(os.environ.get('CV_DATA_DIR', ROOT / 'data'))
@@ -101,7 +103,119 @@ class Handler(BaseHTTPRequestHandler):
             host = 'localhost:8000'
         return 'http://' + host
 
+    def read_body(self):
+        try:
+            length = int(self.headers.get('Content-Length', '0'))
+        except ValueError:
+            length = 0
+        if length <= 0 or length > MAX_UPLOAD:
+            return None
+        return self.rfile.read(length)
+
+    def render_docx(self, data, template):
+        from xml.sax.saxutils import escape
+
+        def esc(text):
+            return escape(str(text or ''))
+
+        def paragraphs(text):
+            return ''.join(f'<w:p><w:r><w:t>{esc(line)}</w:t></w:r></w:p>' for line in str(text or '').split('\n') if line.strip()) or '<w:p><w:r><w:t></w:t></w:r></w:p>'
+
+        contact = ' · '.join(filter(None, [data.get('email', ''), data.get('phone', ''), data.get('location', '')]))
+        summary = paragraphs(data.get('summary', ''))
+        experience = data.get('experience', []) or []
+        education = data.get('education', []) or []
+        skills = data.get('skills', []) or []
+
+        exp_blocks = []
+        for item in experience:
+            if not any(item.get(k) for k in item):
+                continue
+            date = ' – '.join(filter(None, [item.get('start', ''), item.get('end', '')]))
+            exp_blocks.append(
+                f'<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>{esc(item.get("role", ""))}</w:t></w:r>'
+                f'<w:r><w:t xml:space="preserve">{(" — " + esc(item.get("company", ""))) if item.get("company") else ""}</w:t></w:r></w:p>'
+                f'<w:p><w:r><w:t>{esc(date)}</w:t></w:r></w:p>'
+                + paragraphs(item.get('description', ''))
+            )
+        edu_blocks = []
+        for item in education:
+            if not any(item.get(k) for k in item):
+                continue
+            date = ' – '.join(filter(None, [item.get('start', ''), item.get('end', '')]))
+            edu_blocks.append(
+                f'<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>{esc(item.get("course", ""))}</w:t></w:r>'
+                f'<w:r><w:t xml:space="preserve">{(" — " + esc(item.get("institution", ""))) if item.get("institution") else ""}</w:t></w:r></w:p>'
+                f'<w:p><w:r><w:t>{esc(date)}</w:t></w:r></w:p>'
+            )
+
+        accent = {'modern': '2E7D4A', 'minimal': '5A6B61', 'classic': '216854'}.get(template, '216854')
+        accent_rgb = ','.join(str(int(accent[i:i+2], 16)) for i in (0, 2, 4))
+
+        document_xml = f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <w:body>
+    <w:p><w:pPr><w:pStyle w:val="Title"/></w:pPr><w:r><w:rPr><w:color w:val="{esc(accent)}"/></w:rPr><w:t>{esc(data.get('name', 'Currículo'))}</w:t></w:r></w:p>
+    <w:p><w:r><w:t>{esc(data.get('title', ''))}</w:t></w:r></w:p>
+    <w:p><w:r><w:t>{esc(contact)}</w:t></w:r></w:p>
+    {f"<w:p><w:pPr><w:pStyle w:val=\"Heading1\"/></w:pPr><w:r><w:t>Resumo</w:t></w:r></w:p>{summary}" if data.get('summary') else ""}
+    {f"<w:p><w:pPr><w:pStyle w:val=\"Heading1\"/></w:pPr><w:r><w:t>Experiência profissional</w:t></w:r></w:p>{''.join(exp_blocks)}" if exp_blocks else ""}
+    {f"<w:p><w:pPr><w:pStyle w:val=\"Heading1\"/></w:pPr><w:r><w:t>Formação</w:t></w:r></w:p>{''.join(edu_blocks)}" if edu_blocks else ""}
+    {f"<w:p><w:pPr><w:pStyle w:val=\"Heading1\"/></w:pPr><w:r><w:t>Habilidades</w:t></w:r></w:p><w:p><w:r><w:t>{esc(", ".join(s.get("name", "") for s in skills if s.get("name")))}</w:t></w:r></w:p>" if skills else ""}
+    <w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="0" w:footer="0"/></w:sectPr>
+  </w:body>
+</w:document>'''
+
+        styles_xml = f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="22"/></w:rPr></w:style>
+  <w:style w:type="paragraph" w:styleId="Title"><w:pPr><w:spacing w:after="120"/></w:pPr><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:b/><w:sz w:val="40"/><w:color w:val="{esc(accent)}"/></w:rPr></w:style>
+  <w:style w:type="paragraph" w:styleId="Heading1"><w:pPr><w:spacing w:before="240" w:after="80"/><w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="{esc(accent)}"/></w:pBdr></w:pPr><w:rPr><w:b/><w:sz w:val="24"/><w:color w:val="{esc(accent)}"/></w:rPr></w:style>
+  <w:style w:type="paragraph" w:styleId="Heading2"><w:pPr><w:spacing w:before="120" w:after="0"/></w:pPr><w:rPr><w:b/><w:sz w:val="22"/></w:rPr></w:style>
+</w:styles>'''
+
+        rels_xml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>'''
+        content_types_xml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+</Types>'''
+
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr('[Content_Types].xml', content_types_xml)
+            zf.writestr('_rels/.rels', '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>''')
+            zf.writestr('word/_rels/document.xml.rels', rels_xml)
+            zf.writestr('word/document.xml', document_xml)
+            zf.writestr('word/styles.xml', styles_xml)
+        buffer.seek(0)
+        return buffer.read()
+
     def do_POST(self):
+        if self.path == '/api/export/docx':
+            body = self.read_body()
+            if body is None:
+                return self.error(413, 'Payload muito grande.')
+            try:
+                payload = json.loads(body.decode('utf-8'))
+                data = payload.get('data', {})
+                template = payload.get('template', 'classic')
+                if not isinstance(data, dict) or not isinstance(template, str):
+                    raise ValueError('Formato inválido.')
+                if not data.get('name', '').strip():
+                    return self.error(400, 'O nome completo é obrigatório.')
+            except Exception:
+                return self.error(400, 'JSON inválido.')
+            docx = self.render_docx(data, template)
+            return self.respond(200, docx, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', {'Content-Disposition': 'attachment; filename="curriculo.docx"'})
         if self.path != '/api/cvs':
             return self.error(404, 'Rota não encontrada.')
         try:
@@ -134,9 +248,15 @@ class Handler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         if path == '/api/config':
             return self.respond(200, {'email_available': mail_enabled(), 'max_upload': MAX_UPLOAD})
-        if path in ('/', '/index.html', '/app.js', '/styles.css'):
+        if path in ('/', '/index.html', '/app.js', '/styles.css', '/builder.html', '/builder.js'):
             filename = 'index.html' if path == '/' else path.lstrip('/')
-            mime = {'index.html': 'text/html; charset=utf-8', 'app.js': 'text/javascript; charset=utf-8', 'styles.css': 'text/css; charset=utf-8'}[filename]
+            mime = {
+                'index.html': 'text/html; charset=utf-8',
+                'app.js': 'text/javascript; charset=utf-8',
+                'styles.css': 'text/css; charset=utf-8',
+                'builder.html': 'text/html; charset=utf-8',
+                'builder.js': 'text/javascript; charset=utf-8'
+            }[filename]
             return self.respond(200, (ROOT / filename).read_bytes(), mime)
         match = re.fullmatch(r'/api/cvs/([A-Za-z0-9_-]{8})', path)
         if match:
