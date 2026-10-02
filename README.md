@@ -14,13 +14,37 @@ Abra http://localhost:8001. **Não use `python3 -m http.server` nem abra o HTML 
 
 ## Docker
 
-Com Docker Compose:
+### Desenvolvimento local
 
 ```bash
 docker compose up --build
 ```
 
 Abra http://localhost:7003. Os dados ficam no volume persistente `cv_data`.
+
+### VPS Hostinger
+
+Instale Docker Engine e o plugin Docker Compose na VPS. Configure um domínio/subdomínio com registro DNS apontando para o IP da VPS e configure um proxy reverso HTTPS (por exemplo, Nginx) para `http://127.0.0.1:7003`. No firewall da VPS, mantenha liberadas as portas 80 e 443 para o proxy; a porta 7003 fica restrita ao próprio servidor.
+
+Na pasta do projeto na VPS, crie a configuração local e edite-a:
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+Defina `PUBLIC_BASE_URL` como a URL HTTPS pública, por exemplo `https://cv.seudominio.com`. Para notificações, configure também as variáveis `SMTP_*`; sem elas, a aplicação continua funcionando sem enviar e-mails. Não publique nem versione o arquivo `.env`.
+
+Inicie o serviço em segundo plano:
+
+```bash
+docker compose up --build -d
+docker compose ps
+docker compose logs -f webresume
+```
+
+Para atualizar após alterar o código, execute `docker compose up --build -d` novamente. Para parar, use `docker compose down`; os dados permanecem no volume `cv_data`. Não use `docker compose down -v`, pois isso apaga o volume e os currículos enviados.
+
 Para executar diretamente com Docker:
 
 ```bash
