@@ -1,0 +1,45 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Crie e atualize seu currículo com templates e exportação para PDF ou DOCX."><title>CV Link — Criar currículo</title><link rel="stylesheet" href="/styles.css"><script src="/builder.js" defer></script></head><body>
+<header class="site-header"><a class="logo" href="/">▤ cv<span>link.</span></a><nav><a href="/">Início</a><a href="/">Enviar PDF ↗</a></nav><span class="header-note">Sua carreira em movimento</span></header>
+<main class="builder-layout">
+  <aside class="builder-panel" id="editor">
+    <div class="panel-header"><div class="eyebrow">EDITOR</div><h2>Monte seu currículo</h2><p class="panel-intro">Preencha as seções, escolha um template e exporte.</p></div>
+    <div class="field-group"><label>Nome completo<input id="b-name" placeholder="Ana Silva" autocomplete="name"></label><label>Título profissional<input id="b-title" placeholder="Designer de Produto"></label></div>
+    <div class="field-group columns-2"><label>E-mail<input id="b-email" type="email" placeholder="voce@email.com" autocomplete="email"></label><label>Telefone<input id="b-phone" type="tel" placeholder="(11) 91234-5678"></label></div>
+    <div class="field-group"><label>Localidade<input id="b-location" placeholder="São Paulo, SP"></label><label>Resumo<textarea id="b-summary" rows="4" placeholder="Breve descrição sobre você"></textarea></label></div>
+    <div class="repeater" data-section="experience">
+      <div class="repeater-heading"><h3>Experiência profissional</h3><button type="button" class="button small" data-add="experience">+ Adicionar</button></div>
+      <div class="repeater-list" id="experience-list"></div>
+    </div>
+    <div class="repeater" data-section="education">
+      <div class="repeater-heading"><h3>Formação</h3><button type="button" class="button small" data-add="education">+ Adicionar</button></div>
+      <div class="repeater-list" id="education-list"></div>
+    </div>
+    <div class="repeater" data-section="skills">
+      <div class="repeater-heading"><h3>Habilidades</h3><button type="button" class="button small" data-add="skill">+ Adicionar</button></div>
+      <div class="repeater-list" id="skills-list"></div>
+    </div>
+    <div class="builder-actions">
+      <button id="export-pdf" class="button" type="button">Exportar PDF</button>
+      <button id="export-docx" class="button secondary" type="button">Exportar DOCX</button>
+      <button id="clear-builder" class="text-button" type="button">Limpar tudo</button>
+    </div>
+    <p id="builder-message" class="message" role="status"></p>
+  </aside>
+  <section class="preview-area">
+    <div class="preview-toolbar">
+      <label>Template
+        <select id="template-select">
+          <option value="classic">Clássico</option>
+          <option value="modern">Moderno</option>
+          <option value="minimal">Minimal</option>
+        </select>
+      </label>
+      <button id="load-example" class="text-button" type="button">Carregar exemplo</button>
+    </div>
+    <div class="preview-frame">
+      <div id="resume-preview" class="resume-sheet template-classic"></div>
+    </div>
+  </section>
+</main>
+<footer><a class="logo" href="/">▤ cv<span>link.</span></a><p>Seu talento merece ser visto.</p><span>Upload. Link. Conexão.</span></footer>
+</body></html>
