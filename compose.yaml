@@ -2,12 +2,16 @@ services:
   webresume:
     build: .
     restart: unless-stopped
-    env_file:
-      - .env
     environment:
       HOST: 0.0.0.0
       PORT: 7003
       CV_DATA_DIR: /data
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
     ports:
       - "127.0.0.1:${WEBRESUME_PORT:-7003}:7003"
     volumes:
