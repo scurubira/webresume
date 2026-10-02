@@ -1,8 +1,15 @@
 services:
   webresume:
     build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      HOST: 0.0.0.0
+      PORT: 7003
+      CV_DATA_DIR: /data
     ports:
-      - "7003:7003"
+      - "127.0.0.1:${WEBRESUME_PORT:-7003}:7003"
     volumes:
       - cv_data:/data
 
