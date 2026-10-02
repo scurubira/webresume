@@ -12,16 +12,26 @@ PORT=8001 python3 server.py
 
 Abra http://localhost:8001. **Não use `python3 -m http.server` nem abra o HTML diretamente:** o upload, as notificações e a exportação DOCX precisam de `server.py`.
 
-## Criar currículo
+## Docker
 
-Acesse http://localhost:8001/builder.html para usar o construtor:
+Com Docker Compose:
 
-1. Preencha dados pessoais, resumo, experiência, formação e habilidades.
-2. Escolha entre três templates: Clássico, Moderno ou Minimal.
-3. Exporte para PDF usando o botão de imprimir otimizado para A4.
-4. Exporte para DOCX; o arquivo é gerado pelo servidor usando apenas a biblioteca padrão.
+```bash
+docker compose up --build
+```
 
-Os dados do editor são salvos localmente no navegador e não são enviados ao servidor até o momento da exportação DOCX.
+Abra http://localhost:7003. Os dados ficam no volume persistente `cv_data`.
+Para executar diretamente com Docker:
+
+```bash
+docker build -t cv-link .
+docker run --rm -p 7003:7003 -v cv_link_data:/data cv-link
+```
+
+1. Envie um PDF de até 10 MB e informe seu e-mail.
+2. Copie o link público e compartilhe.
+3. Guarde a chave privada do painel para recuperar o acesso em outro navegador.
+4. Quando o PDF for solicitado, o servidor registra o acesso e envia um e-mail se o SMTP estiver configurado. O painel atualiza a cada 5 segundos.
 
 Os arquivos e registros persistem em `data/`, que não é publicado nem incluído no Git. O servidor só expõe os arquivos estáticos permitidos e o PDF por link público. O painel exige uma chave privada aleatória, cuja hash fica no banco. As chaves são guardadas no navegador; limpar o armazenamento sem uma cópia da chave perde o acesso ao painel.
 
