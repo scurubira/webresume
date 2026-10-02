@@ -1,0 +1,10 @@
+services:
+  webresume:
+    build: .
+    ports:
+      - "7003:7003"
+    volumes:
+      - cv_data:/data
+
+volumes:
+  cv_data:
